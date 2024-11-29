@@ -1,0 +1,65 @@
+.
+├── app.py                      # 主程序入口
+├── config.py                   # 配置文件
+├── bot/                        # 机器人模型实现
+│   ├── bot.py                 # 机器人基类
+│   ├── bot_factory.py         # 机器人工厂
+│   ├── ali/                   # 阿里系列模型
+│   ├── baidu/                 # 百度系列模型  
+│   ├── chatgpt/              # ChatGPT相关
+│   ├── claude/               # Claude相关
+│   ├── gemini/               # Google Gemini相关
+│   ├── linkai/               # LinkAI相关
+│   ├── minimax/              # MiniMax相关
+│   ├── moonshot/             # Moonshot相关
+│   ├── openai/               # OpenAI相关
+│   ├── xunfei/               # 讯飞相关
+│   └── zhipuai/              # 智谱AI相关
+│
+├── bridge/                     # 桥接层
+│   ├── bridge.py             # 桥接主类
+│   ├── context.py            # 上下文
+│   └── reply.py              # 回复封装
+│
+├── channel/                    # 通讯通道
+│   ├── channel.py            # 通道基类
+│   ├── channel_factory.py    # 通道工厂
+│   ├── chat_channel.py       # 聊天通道基类
+│   ├── chat_message.py       # 消息封装
+│   ├── dingtalk/            # 钉钉
+│   ├── feishu/              # 飞书
+│   ├── terminal/            # 终端
+│   ├── wechat/              # 微信
+│   ├── wechatcom/           # 企业微信
+│   ├── wechatmp/            # 微信公众号
+│   └── wework/              # 企业微信
+│
+├── common/                     # 公共工具
+│   ├── const.py              # 常量定义
+│   ├── log.py               # 日志工具
+│   ├── singleton.py         # 单例模式
+│   ├── utils.py             # 通用工具
+│   └── ...
+│
+└── lib/                       # 第三方库
+    └── itchat/               # 微信接口库
+
+主要目录说明：
+
+bot/: 包含各种AI模型的实现
+bridge/: 负责连接通道和机器人的桥接层
+channel/: 实现与各种平台的通讯
+common/: 通用工具和功能
+lib/: 第三方依赖库
+每个目录下通常包含:
+
+基础类定义
+具体实现类
+工厂类
+相关工具类
+这种结构设计使得:
+
+代码组织清晰
+模块职责分明
+便于扩展新功能
+易于维护和测试
