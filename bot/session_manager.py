@@ -39,27 +39,22 @@ class Session(object):
 class SessionManager(object):
     def __init__(self, sessioncls, **session_args):
         if conf().get("expires_in_seconds"):
-            sessions = ExpiredDict(conf().get("expires_in_seconds"))
+            self.sessions = ExpiredDict(conf().get("expires_in_seconds"))
         else:
-            sessions = dict()
-        self.sessions = sessions
+            self.sessions = {}
         self.sessioncls = sessioncls
-        self.session_args = session_args
+        self.session_args = {}
 
     def build_session(self, session_id, system_prompt=None):
-        """
-        如果session_id不在sessions中，创建一个新的session并添加到sessions中
-        如果system_prompt不会空，会更新session的system_prompt并重置session
-        """
         if session_id is None:
-            return self.sessioncls(session_id, system_prompt, **self.session_args)
-
+            return self.sessioncls(session_id, system_prompt)
+        
         if session_id not in self.sessions:
-            self.sessions[session_id] = self.sessioncls(session_id, system_prompt, **self.session_args)
-        elif system_prompt is not None:  # 如果有新的system_prompt，更新并重置session
+            self.sessions[session_id] = self.sessioncls(session_id, system_prompt)
+        elif system_prompt is not None:
             self.sessions[session_id].set_system_prompt(system_prompt)
-        session = self.sessions[session_id]
-        return session
+        
+        return self.sessions[session_id]
 
     def session_query(self, query, session_id):
         session = self.build_session(session_id)

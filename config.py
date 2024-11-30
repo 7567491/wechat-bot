@@ -5,6 +5,7 @@ import logging
 import os
 import pickle
 import copy
+from dotenv import load_dotenv
 
 from common.log import logger
 
@@ -18,7 +19,7 @@ available_setting = {
     "proxy": "",  # openai使用的代理
     # chatgpt模型， 当use_azure_chatgpt为true时，其名称为Azure上model deployment名称
     "model": "gpt-3.5-turbo",  # 可选择: gpt-4o, pt-4o-mini, gpt-4-turbo, claude-3-sonnet, wenxin, moonshot, qwen-turbo, xunfei, glm-4, minimax, gemini等模型，全部可选模型详见common/const.py文件
-    "bot_type": "",  # 可选配置，使用兼容openai格式的三方服务时候，需填"chatGPT"。bot具体名称详见common/const.py文件列出的bot_type，如不填根据model名称判断，
+    "bot_type": "",  # 可选配置，使用兼容openai格式的三方服务时候，需填"chatGPT"。bot具体名称详见common/const.py文件列出的bot_type，如不填根据model名称判，
     "use_azure_chatgpt": False,  # 是否使用azure的chatgpt
     "azure_deployment_id": "",  # azure 模型部署名称
     "azure_api_version": "",  # azure api版本
@@ -114,7 +115,7 @@ available_setting = {
     "azure_voice_region": "japaneast",
     # elevenlabs 语音api配置
     "xi_api_key": "",  # 获取ap的方法可以参考https://docs.elevenlabs.io/api-reference/quick-start/authentication
-    "xi_voice_id": "",  # ElevenLabs提供了9种英式、美式等英语发音id，分别是“Adam/Antoni/Arnold/Bella/Domi/Elli/Josh/Rachel/Sam”
+    "xi_voice_id": "",  # ElevenLabs提供了9种英式、美式等英语id，分别是“Adam/Antoni/Arnold/Bella/Domi/Elli/Josh/Rachel/Sam”
     # 服务时间限制，目前支持itchat
     "chat_time_module": False,  # 是否开启服务时间限制
     "chat_start_time": "00:00",  # 服务开始时间
@@ -170,7 +171,8 @@ available_setting = {
     "zhipu_ai_api_key": "",
     "zhipu_ai_api_base": "https://open.bigmodel.cn/api/paas/v4",
     "moonshot_api_key": "",
-    "moonshot_base_url": "https://api.moonshot.cn/v1/chat/completions",
+    "moonshot_api_base": "https://api.moonshot.cn/v1/chat/completions",
+    "moonshot_model": str,  # 添加这一行
     # LinkAI平台配置
     "use_linkai": False,
     "linkai_api_key": "",
@@ -179,6 +181,7 @@ available_setting = {
     "Minimax_api_key": "",
     "Minimax_group_id": "",
     "Minimax_base_url": "",
+    "max_tokens": int,  # 添加这一行
 }
 
 
@@ -263,8 +266,38 @@ def drag_sensitive(config):
     return config
 
 
+def load_agi_config() -> dict:
+    """Load AGI configurations from .env file"""
+    config_dict = {}
+    
+    # 获取选择的 AGI 提供商
+    agi_provider = os.getenv('AGI_PROVIDER', '').lower()
+    
+    if agi_provider == 'moonshot':
+        api_key = os.getenv('KIMI_API_KEY')  # 使用 KIMI_API_KEY 环境变量
+        api_base = os.getenv('KIMI_API_BASE', 'https://api.moonshot.cn/v1/chat/completions')
+        
+        if api_key:
+            config_dict.update({
+                "model": "moonshot",
+                "moonshot_api_key": api_key,
+                "moonshot_api_base": api_base,  # 改为 moonshot_api_base
+                "temperature": float(os.getenv('MOONSHOT_TEMPERATURE', '0.9')),
+            })
+            logger.info("Moonshot configuration loaded from .env")
+        else:
+            logger.warning("Moonshot API key not found in .env")
+    
+    return config_dict
+
+
 def load_config():
     global config
+    
+    # 首先加载 .env 文件
+    load_dotenv()
+    
+    # 加载基础配置文件
     config_path = "./config.json"
     if not os.path.exists(config_path):
         logger.info("配置文件不存在，将使用config-template.json模板")
@@ -275,9 +308,16 @@ def load_config():
 
     # 将json字符串反序列化为dict类型
     config = Config(json.loads(config_str))
+    
+    # 加载 AGI 配置并更新
+    agi_config = load_agi_config()
+    if agi_config:
+        for key, value in agi_config.items():
+            if key in available_setting:
+                config[key] = value
+                logger.info(f"[INIT] override config by AGI config: {key}={value}")
 
-    # override config with environment variables.
-    # Some online deployment platforms (e.g. Railway) deploy project from github directly. So you shouldn't put your secrets like api key in a config file, instead use environment variables to override the default config.
+    # 继续处理环境变量覆盖
     for name, value in os.environ.items():
         name = name.lower()
         if name in available_setting:

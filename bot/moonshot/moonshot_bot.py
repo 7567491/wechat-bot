@@ -18,17 +18,18 @@ import requests
 class MoonshotBot(Bot):
     def __init__(self):
         super().__init__()
-        self.sessions = SessionManager(MoonshotSession, model=conf().get("model") or "moonshot-v1-128k")
         model = conf().get("model") or "moonshot-v1-128k"
         if model == "moonshot":
             model = "moonshot-v1-32k"
+        self.sessions = SessionManager(MoonshotSession)
         self.args = {
             "model": model,  # 对话模型的名称
             "temperature": conf().get("temperature", 0.3),  # 如果设置，值域须为 [0, 1] 我们推荐 0.3，以达到较合适的效果。
             "top_p": conf().get("top_p", 1.0),  # 使用默认值
+            "max_tokens": conf().get("max_tokens", 1000),  # 添加这一行，控制每次回复的最大token数
         }
         self.api_key = conf().get("moonshot_api_key")
-        self.base_url = conf().get("moonshot_base_url", "https://api.moonshot.cn/v1/chat/completions")
+        self.api_base = conf().get("moonshot_api_base", "https://api.moonshot.cn/v1/chat/completions")
 
     def reply(self, query, context=None):
         # acquire reply content
@@ -100,7 +101,7 @@ class MoonshotBot(Bot):
             # logger.debug("[MOONSHOT_AI] response={}".format(response))
             # logger.info("[MOONSHOT_AI] reply={}, total_tokens={}".format(response.choices[0]['message']['content'], response["usage"]["total_tokens"]))
             res = requests.post(
-                self.base_url,
+                self.api_base,
                 headers=headers,
                 json=body
             )

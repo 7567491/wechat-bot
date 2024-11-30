@@ -3,10 +3,15 @@ from common.log import logger
 
 
 class MoonshotSession(Session):
-    def __init__(self, session_id, system_prompt=None, model="moonshot-v1-128k"):
+    def __init__(self, session_id, system_prompt=None):
         super().__init__(session_id, system_prompt)
-        self.model = model
         self.reset()
+
+    def reset(self):
+        system_prompt = self.system_prompt
+        if system_prompt is None:
+            system_prompt = conf().get("character_desc", "")
+        self.messages = [{"role": "system", "content": system_prompt}]
 
     def discard_exceeding(self, max_tokens, cur_tokens=None):
         precise = True
