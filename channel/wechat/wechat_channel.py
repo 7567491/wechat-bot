@@ -10,6 +10,7 @@ import os
 import threading
 import time
 import requests
+from tqdm import tqdm
 
 from bridge.context import *
 from bridge.reply import *
@@ -117,23 +118,41 @@ class WechatChannel(ChatChannel):
 
     def startup(self):
         try:
-            itchat.instance.receivingRetryCount = 600  # 修改断线超时时间
-            # login by scan QRCode
-            hotReload = conf().get("hot_reload", False)
-            status_path = os.path.join(get_appdata_dir(), "itchat.pkl")
-            itchat.auto_login(
-                enableCmdQR=2,
-                hotReload=hotReload,
-                statusStorageDir=status_path,
-                qrCallback=qrCallback,
-                exitCallback=self.exitCallback,
-                loginCallback=self.loginCallback
-            )
-            self.user_id = itchat.instance.storageClass.userName
-            self.name = itchat.instance.storageClass.nickName
-            logger.info("Wechat login success, user_id: {}, nickname: {}".format(self.user_id, self.name))
-            # start message listener
-            itchat.run()
+            print("Starting WeChat Channel...")
+            with tqdm(total=4, desc="Initializing WeChat") as pbar:
+                itchat.instance.receivingRetryCount = 600  # 修改断线超时时间
+                pbar.update(1)
+                
+                # login by scan QRCode
+                hotReload = conf().get("hot_reload", False)
+                status_path = os.path.join(get_appdata_dir(), "itchat.pkl")
+                pbar.set_description("Waiting for QR code scan")
+                pbar.update(1)
+                
+                def login_callback():
+                    pbar.set_description("Loading contacts")
+                    pbar.update(1)
+                    self._load_data()
+                    pbar.set_description("Login successful")
+                    pbar.update(1)
+                    logger.debug("Login success")
+                    _send_login_success()
+                
+                itchat.auto_login(
+                    enableCmdQR=2,
+                    hotReload=hotReload,
+                    statusStorageDir=status_path,
+                    qrCallback=qrCallback,
+                    exitCallback=self.exitCallback,
+                    loginCallback=login_callback
+                )
+                
+                self.user_id = itchat.instance.storageClass.userName
+                self.name = itchat.instance.storageClass.nickName
+                logger.info("Wechat login success, user_id: {}, nickname: {}".format(self.user_id, self.name))
+                print(f"\nWeChat logged in as: {self.name}")
+                # start message listener
+                itchat.run()
         except Exception as e:
             logger.exception(e)
 
@@ -151,8 +170,24 @@ class WechatChannel(ChatChannel):
             pass
 
     def loginCallback(self):
-        logger.debug("Login success")
-        _send_login_success()
+        """This method is kept for compatibility"""
+        pass
+
+    def _load_data(self):
+        """Load contacts and groups data"""
+        print("\nLoading contacts and groups...")
+        
+        # 使用临时进度条显示联系人加载过程
+        with tqdm(total=None, desc="Loading contacts", bar_format='{desc}: {elapsed}s') as pbar:
+            friends = itchat.get_friends()
+            pbar.set_description(f"Loaded {len(friends)} contacts")
+        
+        # 使用临时进度条显示群组加载过程
+        with tqdm(total=None, desc="Loading groups", bar_format='{desc}: {elapsed}s') as pbar:
+            groups = itchat.get_chatrooms()
+            pbar.set_description(f"Loaded {len(groups)} groups")
+        
+        print(f"\nSuccessfully loaded {len(friends)} contacts and {len(groups)} groups")
 
     # handle_* 系列函数处理收到的消息后构造Context，然后传入produce函数中处理Context和发送回复
     # Context包含了消息的所有信息，包括以下属性
