@@ -11,6 +11,7 @@ from common import const
 from common.log import logger
 from config import conf
 from plugins import *
+from openai.types.error import APIError, APIConnectionError, RateLimitError
 
 
 class RolePlay:
@@ -102,88 +103,95 @@ class Role(Plugin):
         if btype not in [const.OPEN_AI, const.CHATGPT, const.CHATGPTONAZURE, const.QWEN_DASHSCOPE, const.XUNFEI, const.BAIDU, const.ZHIPU_AI, const.MOONSHOT, const.MiniMax, const.LINKAI]:
             logger.debug(f'不支持的bot: {btype}')
             return
-        bot = Bridge().get_bot("chat")
-        content = e_context["context"].content[:]
-        clist = e_context["context"].content.split(maxsplit=1)
-        desckey = None
-        customize = False
-        sessionid = e_context["context"]["session_id"]
-        trigger_prefix = conf().get("plugin_trigger_prefix", "$")
-        if clist[0] == f"{trigger_prefix}停止扮演":
-            if sessionid in self.roleplays:
-                self.roleplays[sessionid].reset()
-                del self.roleplays[sessionid]
-            reply = Reply(ReplyType.INFO, "角色扮演结束!")
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
-            return
-        elif clist[0] == f"{trigger_prefix}角色":
-            desckey = "descn"
-        elif clist[0].lower() == f"{trigger_prefix}role":
-            desckey = "description"
-        elif clist[0] == f"{trigger_prefix}设定扮演":
-            customize = True
-        elif clist[0] == f"{trigger_prefix}角色类型":
-            if len(clist) > 1:
-                tag = clist[1].strip()
-                help_text = "角色列表：\n"
-                for key, value in self.tags.items():
-                    if value[0] == tag:
-                        tag = key
-                        break
-                if tag == "所有":
-                    for role in self.roles.values():
-                        help_text += f"{role['title']}: {role['remark']}\n"
-                elif tag in self.tags:
-                    for role in self.tags[tag][1]:
-                        help_text += f"{role['title']}: {role['remark']}\n"
+        try:
+            bot = Bridge().get_bot("chat")
+            content = e_context["context"].content[:]
+            clist = e_context["context"].content.split(maxsplit=1)
+            desckey = None
+            customize = False
+            sessionid = e_context["context"]["session_id"]
+            trigger_prefix = conf().get("plugin_trigger_prefix", "$")
+            if clist[0] == f"{trigger_prefix}停止扮演":
+                if sessionid in self.roleplays:
+                    self.roleplays[sessionid].reset()
+                    del self.roleplays[sessionid]
+                reply = Reply(ReplyType.INFO, "角色扮演结束!")
+                e_context["reply"] = reply
+                e_context.action = EventAction.BREAK_PASS
+                return
+            elif clist[0] == f"{trigger_prefix}角色":
+                desckey = "descn"
+            elif clist[0].lower() == f"{trigger_prefix}role":
+                desckey = "description"
+            elif clist[0] == f"{trigger_prefix}设定扮演":
+                customize = True
+            elif clist[0] == f"{trigger_prefix}角色类型":
+                if len(clist) > 1:
+                    tag = clist[1].strip()
+                    help_text = "角色列表：\n"
+                    for key, value in self.tags.items():
+                        if value[0] == tag:
+                            tag = key
+                            break
+                    if tag == "所有":
+                        for role in self.roles.values():
+                            help_text += f"{role['title']}: {role['remark']}\n"
+                    elif tag in self.tags:
+                        for role in self.tags[tag][1]:
+                            help_text += f"{role['title']}: {role['remark']}\n"
+                    else:
+                        help_text = f"未知角色类型。\n"
+                        help_text += "目前的角色类型有: \n"
+                        help_text += "，".join([self.tags[tag][0] for tag in self.tags]) + "\n"
                 else:
-                    help_text = f"未知角色类型。\n"
+                    help_text = f"请输入角色类型。\n"
                     help_text += "目前的角色类型有: \n"
                     help_text += "，".join([self.tags[tag][0] for tag in self.tags]) + "\n"
-            else:
-                help_text = f"请输入角色类型。\n"
-                help_text += "目前的角色类型有: \n"
-                help_text += "，".join([self.tags[tag][0] for tag in self.tags]) + "\n"
-            reply = Reply(ReplyType.INFO, help_text)
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
-            return
-        elif sessionid not in self.roleplays:
-            return
-        logger.debug("[Role] on_handle_context. content: %s" % content)
-        if desckey is not None:
-            if len(clist) == 1 or (len(clist) > 1 and clist[1].lower() in ["help", "帮助"]):
-                reply = Reply(ReplyType.INFO, self.get_help_text(verbose=True))
+                reply = Reply(ReplyType.INFO, help_text)
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
                 return
-            role = self.get_role(clist[1])
-            if role is None:
-                reply = Reply(ReplyType.ERROR, "角色不存在")
-                e_context["reply"] = reply
-                e_context.action = EventAction.BREAK_PASS
+            elif sessionid not in self.roleplays:
                 return
-            else:
-                self.roleplays[sessionid] = RolePlay(
-                    bot,
-                    sessionid,
-                    self.roles[role][desckey],
-                    self.roles[role].get("wrapper", "%s"),
-                )
-                reply = Reply(ReplyType.INFO, f"预设角色为 {role}:\n" + self.roles[role][desckey])
+            logger.debug("[Role] on_handle_context. content: %s" % content)
+            if desckey is not None:
+                if len(clist) == 1 or (len(clist) > 1 and clist[1].lower() in ["help", "帮助"]):
+                    reply = Reply(ReplyType.INFO, self.get_help_text(verbose=True))
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+                    return
+                role = self.get_role(clist[1])
+                if role is None:
+                    reply = Reply(ReplyType.ERROR, "角色不存在")
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+                    return
+                else:
+                    self.roleplays[sessionid] = RolePlay(
+                        bot,
+                        sessionid,
+                        self.roles[role][desckey],
+                        self.roles[role].get("wrapper", "%s"),
+                    )
+                    reply = Reply(ReplyType.INFO, f"预设角色为 {role}:\n" + self.roles[role][desckey])
+                    e_context["reply"] = reply
+                    e_context.action = EventAction.BREAK_PASS
+            elif customize == True:
+                self.roleplays[sessionid] = RolePlay(bot, sessionid, clist[1], "%s")
+                reply = Reply(ReplyType.INFO, f"角色设定为:\n{clist[1]}")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-        elif customize == True:
-            self.roleplays[sessionid] = RolePlay(bot, sessionid, clist[1], "%s")
-            reply = Reply(ReplyType.INFO, f"角色设定为:\n{clist[1]}")
-            e_context["reply"] = reply
-            e_context.action = EventAction.BREAK_PASS
-        else:
-            prompt = self.roleplays[sessionid].action(content)
-            e_context["context"].type = ContextType.TEXT
-            e_context["context"].content = prompt
-            e_context.action = EventAction.BREAK
+            else:
+                prompt = self.roleplays[sessionid].action(content)
+                e_context["context"].type = ContextType.TEXT
+                e_context["context"].content = prompt
+                e_context.action = EventAction.BREAK
+        except openai.APIError as e:
+            logger.error(f"调用 API 出错: {str(e)}")
+            e_context['reply'] = Reply(ReplyType.ERROR, "抱歉，我现在有点忙，请稍后再试")
+        except Exception as e:
+            logger.error(f"意外错误: {str(e)}")
+            e_context['reply'] = Reply(ReplyType.ERROR, "处理消息时出现错误，请重试")
 
     def get_help_text(self, verbose=False, **kwargs):
         help_text = "让机器人扮演不同的角色。\n"

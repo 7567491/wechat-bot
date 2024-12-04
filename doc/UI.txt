@@ -1,0 +1,45 @@
+帮我设计一个高级版的UI，要求如下：
+使用streamlit框架，主程序名字ui.py，暗色主题
+左侧边栏功能：主页、登录、日志、设置等，左侧边栏使用按钮，黄色边框
+充分利用现有程序的所有功能，并进行优化
+如果需要功能模块，放在/ui/目录下，配置新的py文件
+project/
+├── ui.py
+├── ui/
+│   ├── __init__.py
+│   ├── home.py
+│   ├── chat.py
+│   ├── config.py
+│   ├── logger.py
+│   ├── utils.py
+│   └── db.py
+├── logs/
+│   └── chatgpt.log
+└── config.json
+
+除了UI，我还需要实现如下功能
+
+1.提示词定制
+尤其是当用户输入不同的暗语，比如“bot”"gf"“wx”等的时候
+bot要使用不同的提示词进行回答
+还能够自定义回复的长度等
+提示词模板使用/ui/prompt.json文件
+
+
+2.历史日志查看
+不同用户的单独对话，捕获与记录，可以使用sqlite
+数据库使用/ui/chat.db
+
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+
+3.群白名单等的定制在UI可以修改，其他配置都可以通过UI
+
+4.主页可以显示一些统计信息
+
+5.如果掉线，通过企业微信通知bot发给管理员
